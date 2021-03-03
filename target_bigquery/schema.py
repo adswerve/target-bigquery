@@ -225,7 +225,7 @@ def define_schema(field, name, required_fields=None):
             schema_type = field_type
 
     elif field_type == "number":
-        schema_type = "FLOAT"
+        schema_type = "NUMERIC"
     else:
         schema_type = field_type
 
