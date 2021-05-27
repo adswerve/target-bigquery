@@ -149,6 +149,8 @@ def define_schema(field, name, required_fields=None):
 
     if field_type == "anyOf":
         props = field["anyOf"]
+        if not get_type(props[0])[0].lower() == "object":
+            return define_schema(props[0], name)
 
         schema_type = "RECORD"
         schema_fields = merge_anyof(props)
@@ -250,7 +252,7 @@ def build_schema(schema, key_properties=None, add_metadata=True, force_fields={}
         required_fields.update(schema["required"])
 
     for key, props in schema.get("properties",
-                                 schema.get("items", {}).get("properties")
+                                 schema.get("items", {}).get("properties", {})
                                  ).items():  # schema["properties"].items():
 
         if key in force_fields:

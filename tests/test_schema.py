@@ -66,3 +66,15 @@ class TestSimpleStream(unittestcore.BaseUnitTest):
 
         self.assertTrue(True)
 
+    def test_anyOf_type(self):
+        schema = '{"type": "SCHEMA", "stream": "campaigns", "schema": {"type": ["null", "object"], "additionalProperties": false, "properties": {"id": { "type": [ "null", "string" ] }, "CreatedAt": { "anyOf": [ { "type": "string", "format": "date-time" }, { "type": [ "string", "null" ] } ] }}}, "key_properties": [ "id" ]}'
+        msg = singer.parse_message(schema)
+
+        schema = build_schema(msg.schema, key_properties=msg.key_properties, add_metadata=True)
+
+        expected_timestamp_schemas = filter(lambda sf: sf.name in ["CreatedAt"], schema)
+        for sf in expected_timestamp_schemas:
+            self.assertEqual(sf.field_type, "timestamp")
+
+        self.assertTrue(True)
+
