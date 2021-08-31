@@ -398,7 +398,7 @@ Add the following files to *sandbox* directory under project root directory:
   ```
   {
     "project_id": "{your-project-id}",
-    "dataset_id": "{your_dataset_id}"
+    "dataset_id": "{your_dataset_id}",
     "replication_method": "truncate",
     "max_cache": 0
   }
@@ -408,7 +408,7 @@ Add the following files to *sandbox* directory under project root directory:
   ```
   {
     "project_id": "{your-project-id}",
-    "dataset_id": "{your_dataset_id}"
+    "dataset_id": "{your_dataset_id}",
     "replication_method": "append",
     "max_cache": 0
   }
@@ -417,7 +417,7 @@ Add the following files to *sandbox* directory under project root directory:
   ```
   {
     "project_id": "{your-project-id}",
-    "dataset_id": "{your_dataset_id}"
+    "dataset_id": "{your_dataset_id}",
     "max_cache": 0
   }    
   ```
@@ -429,7 +429,7 @@ Add the following files to *sandbox* directory under project root directory:
     ``` 
     {
       "project_id": "{your-project-id}",
-      "dataset_id": "{your_dataset_id}"
+      "dataset_id": "{your_dataset_id}",
       "table_config": "rsc/config/simple_stream_table_config.json"
     }      
     ```
@@ -444,7 +444,7 @@ Add the following files to *sandbox* directory under project root directory:
     ``` 
     {
       "project_id": "{your-project-id}",
-      "dataset_id": "{your_dataset_id}"
+      "dataset_id": "{your_dataset_id}",
       "table_config": "tests/rsc/config/simple_stream_table_config.json"
     }
     ``` 
@@ -454,7 +454,7 @@ Add the following files to *sandbox* directory under project root directory:
   ```
   {
     "project_id": "{your-project-id}",
-    "dataset_id": "{your_dataset_id}"
+    "dataset_id": "{your_dataset_id}",
     "validate_records":  false
   }   
     ```
