@@ -155,6 +155,12 @@ sample [target-config.json](/sample_config/target-config-exchange-rates-api.json
     * `incremental`: **Upserting** new rows into the table, using the **primary key** given by the tap connector
       (if it finds an old row with same key, updates it. Otherwise it inserts the new row)
  - WARNING: We do not recommend using `incremental` option (which uses `MERGE` SQL statement). It might result in loss of production data, because historical records get updated. Instead, we recommend using the `append` replication method, which will preserve historical data. 
+- There's also the option to set an additional parameter `deduplication_property` in order to deduplicate values. Based on an attribute (Typically a timestamp), a query will run before the loading part to BigQuery, removing all duplicates.
+  - And besides that, the possibility  to choose the order of this parameter with `deduplication_order` with:
+    * **DESC**: Default option. Keeps the one with the bigger deduplication_property or a random element between those who have the bigger one.
+    * **ASC**: Keeps the one with the smaller deduplication_property or a random element between those who have the bigger one.
+
+
 
 Sample **target-config.json** file:
 

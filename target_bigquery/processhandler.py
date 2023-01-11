@@ -34,6 +34,11 @@ class BaseProcessHandler(object):
         # LoadJobProcessHandler kwargs
         self.truncate = kwargs.get("truncate", False)
         self.incremental = kwargs.get("incremental", False)
+
+        # deduplication kwargs
+        self.deduplication_property = kwargs.get("deduplication_property", False)
+        self.deduplication_order = kwargs.get("deduplication_order", "DESC")
+
         self.add_metadata_columns = kwargs.get("add_metadata_columns", True)
         self.validate_records = kwargs.get("validate_records", True)
         self.table_configs = kwargs.get("table_configs", {}) or {}
@@ -228,6 +233,27 @@ class LoadJobProcessHandler(BaseProcessHandler):
         return " and ".join(keys)
     #TODO: test it with multiple ids (an array of ids, if there are multiple key_properties in JSON schema)
     #TODO: test it with dupe ids in the data
+    def primary_keys(self, stream):
+        keys = [f"temp.{k}" for k in self.key_properties[stream]]
+        if len(keys) < 1:
+            raise Exception(f"No primary keys specified from the tap and Incremental option selected")
+        return " , ".join(keys)
+
+    def partition_primary_keys(self, stream):
+        keys = [f"s.{k}" for k in self.key_properties[stream]]
+        if len(keys) < 1:
+            raise Exception(f"No primary partition keys specified from the tap and Incremental option selected")
+        return " , ".join(keys)
+
+    def duplicate_condition(self):
+        keys = "and t." + self.deduplication_property + "=s." + self.deduplication_property
+        return keys
+
+    def first_primary_key(self, stream):
+        keys = self.key_properties[stream][0]
+        if len(keys) < 1:
+            raise Exception(f"No first primary key specified from the tap and Incremental option selected")
+        return "t." + keys
 
     def _do_temp_table_based_load(self, rows):
         assert isinstance(rows, dict)
@@ -271,23 +297,58 @@ class LoadJobProcessHandler(BaseProcessHandler):
                     self.logger.warning(f"INCREMENTAL replication method (MERGE SQL statement) is not recommended. It might result in loss of production data, because historical records get updated during the sync operation. Instead, we recommend using the APPEND replication method, which will preserve historical data.")
                     table_id = f"{self.project_id}.{self.dataset.dataset_id}.{self.tables[stream]}"
                     try:
+
                         self.client.get_table(table_id)
-                        column_names = [x.name for x in self.bq_schemas[stream]]
+                        column_names = [f"`{x.name}`" for x in self.bq_schemas[stream]]
 
-                        query ="""MERGE `{table}` t
-                            USING `{temp_table}` s
-                            ON {primary_key_condition}
-                            WHEN MATCHED THEN
-                                UPDATE SET {set_values}
-                            WHEN NOT MATCHED THEN
-                                INSERT ({new_cols}) VALUES ({cols})
-                            """.format(table=table_id,
-                                       temp_table=f"{self.project_id}.{self.dataset.dataset_id}.{tmp_table_name}",
-                                       primary_key_condition=self.primary_key_condition(stream),
-                                       set_values=', '.join(f'{c}=s.{c}' for c in column_names),
-                                       new_cols=', '.join(column_names),
-                                       cols=', '.join(f's.{c}' for c in column_names))
+                        if self.deduplication_property:
 
+                            copy_config = CopyJobConfig()
+                            copy_config.write_disposition = WriteDisposition.WRITE_TRUNCATE
+
+                            query_duplicates = """CREATE OR REPLACE TABLE `{temp_table}` AS
+                                                with last_versions as (
+                                                    select {primary_keys} from `{temp_table}` temp
+                                                ), dedup as(
+                                                select s.*,  
+                                                ROW_NUMBER() OVER (PARTITION BY {partition_keys} ORDER BY {partition_deduplication_property} {deduplication_order}) AS finish_rank  
+                                                from `{temp_table}` s
+                                                left join last_versions t on {primary_key_condition} 
+                                                where {first_primary_key} is not null),
+                                                final_table as(
+                                                SELECT * FROM dedup WHERE finish_rank = 1)
+                                                SELECT * EXCEPT (finish_rank) FROM final_table ;
+                                    """.format(
+                                temp_table=f"{self.project_id}.{self.dataset.dataset_id}.{tmp_table_name}",
+                                primary_keys=str(self.primary_keys(stream)),
+                                partition_keys=str(self.partition_primary_keys(stream)),
+                                temp_deduplication_property=str("temp." + str(self.deduplication_property)),
+                                partition_deduplication_property=str("s." + str(self.deduplication_property)),
+                                deduplication_property=str(self.deduplication_property),
+                                primary_key_condition=self.primary_key_condition(stream),
+                                duplicate_condition=self.duplicate_condition(),
+                                deduplication_order=str(self.deduplication_order),
+                                first_primary_key=self.first_primary_key(stream))
+
+                            job_config = QueryJobConfig()
+                            query_job = self.client.query(query_duplicates, job_config=job_config)
+                            query_job.result()
+
+                            self.logger.info(f"Removed duplicates by attribute: {str(self.deduplication_property)} and {str(self.deduplication_order)} order.")
+
+                        query = """MERGE `{table}` t
+                                USING `{temp_table}` s
+                                ON {primary_key_condition}
+                                WHEN MATCHED THEN
+                                    UPDATE SET {set_values}
+                                WHEN NOT MATCHED THEN
+                                    INSERT ({new_cols}) VALUES ({cols})
+                                """.format(table=table_id,
+                                           temp_table=f"{self.project_id}.{self.dataset.dataset_id}.{tmp_table_name}",
+                                           primary_key_condition=self.primary_key_condition(stream),
+                                           set_values=', '.join(f'{c}=s.{c}' for c in column_names),
+                                           new_cols=', '.join(column_names),
+                                           cols=', '.join(f's.{c}' for c in column_names))
                         job_config = QueryJobConfig()
                         query_job = self.client.query(query, job_config=job_config)
                         query_job.result()

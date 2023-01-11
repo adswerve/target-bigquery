@@ -75,6 +75,10 @@ def main():
     validate_records = config.get("validate_records", True)
     add_metadata_columns = config.get("add_metadata_columns", True)
 
+    # deduplication arguments
+    deduplication_property = config.get("deduplication_property", "")
+    deduplication_order = config.get("deduplication_order", "DESC")
+
     # we can pass merge state option via CLI param
     merge_state_messages_cli = flags.merge_state_messages
 
@@ -126,7 +130,9 @@ def main():
             table_suffix=table_suffix,
             add_metadata_columns=add_metadata_columns,
             table_configs=table_configs,
-            max_cache=max_cache
+            max_cache=max_cache,
+            deduplication_property=deduplication_property,
+            deduplication_order=deduplication_order
         )
 
         # write a state file
