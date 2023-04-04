@@ -1,4 +1,4 @@
-singer-python~=5.12.2
+singer-python~=5.13.0
 google-cloud-bigquery~=3.3.5
-jsonschema~=2.6.0
+jsonschema>=3.0,<4.0
 setuptools~=65.5.0
