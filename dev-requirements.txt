@@ -1,5 +1,5 @@
-pytest~=7.2.0
-testfixtures~=7.0.0
-pandas~=1.5.1
-pyarrow~=9.0.0
-db-dtypes~=1.0.4
+pytest~=9.1.1
+testfixtures~=12.4.0
+pandas~=3.0.6
+pyarrow~=26.0.0
+db-dtypes~=1.7.2
