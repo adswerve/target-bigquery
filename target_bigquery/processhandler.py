@@ -274,7 +274,8 @@ class LoadJobProcessHandler(BaseProcessHandler):
                     table_id = f"{self.project_id}.{self.dataset.dataset_id}.{self.tables[stream]}"
                     try:
                         self.client.get_table(table_id)
-                        column_names = [x.name for x in self.bq_schemas[stream]]
+                        #column_names = [x.name for x in self.bq_schemas[stream]]
+                        column_names = [x.name if hasattr(x, "name") else x["name"] for x in self.bq_schemas[stream]]
 
                         query = """MERGE `{table}` t
                             USING `{temp_table}` s
@@ -366,7 +367,14 @@ class LoadJobProcessHandler(BaseProcessHandler):
         #                       force_fields=force_fields)
         load_config = LoadJobConfig()
         load_config.ignore_unknown_values = True
-        load_config.schema = table_schema
+
+        # Ensure schema fields are serialized to standard dicts for json.dumps
+        def _to_api(field):
+            if hasattr(field, "to_api_repr"):
+                return field.to_api_repr()
+            return field
+
+        load_config.schema = [_to_api(f) for f in table_schema] if table_schema else None
 
         # partitioning
         if partition_field:
