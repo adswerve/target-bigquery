@@ -19,6 +19,17 @@ from target_bigquery.simplify_json_schema import simplify
 from target_bigquery.validate_json_schema import validate_json_schema_completeness, \
     check_schema_for_dupes_in_field_names
 
+from google.cloud.bigquery import SchemaField
+# Enable standard json.dumps to serialize BigQuery SchemaField instances
+_original_default = json.JSONEncoder.default
+
+def _schema_field_default(self, obj):
+    if isinstance(obj, SchemaField):
+        return obj.to_api_repr()
+    return _original_default(self, obj)
+
+json.JSONEncoder.default = _schema_field_default
+
 
 class BaseProcessHandler(object):
 
@@ -362,19 +373,25 @@ class LoadJobProcessHandler(BaseProcessHandler):
             raise NotImplementedError(
                 f"Table name '{dataset.dataset_id}.{table_name}' was set to partition by '{partition_type}' which is not supported! Use one of [DAY, HOUR, MONTH, YEAR]. If empty, DAY will be used as default if partition_field is set.")
 
-        # schema_simplified = simplify(table_schema)
-        # schema = build_schema(schema_simplified, key_properties=key_props, add_metadata=metadata_columns,
-        #                       force_fields=force_fields)
         load_config = LoadJobConfig()
         load_config.ignore_unknown_values = True
 
-        # Ensure schema fields are serialized to standard dicts for json.dumps
-        def _to_api(field):
+        def _to_api_recursive(field):
             if hasattr(field, "to_api_repr"):
-                return field.to_api_repr()
-            return field
+                d = field.to_api_repr()
+            elif isinstance(field, dict):
+                d = dict(field)
+            else:
+                return field
 
-        load_config.schema = [_to_api(f) for f in table_schema] if table_schema else None
+            if "fields" in d and isinstance(d["fields"], (list, tuple)):
+                d["fields"] = [_to_api_recursive(sub) for sub in d["fields"]]
+            return d
+
+        if table_schema:
+            api_schema = [_to_api_recursive(f) for f in table_schema]
+            # Bypass LoadJobConfig.schema setter re-casting to SchemaField
+            load_config._set_sub_prop("schema", {"fields": api_schema})
 
         # partitioning
         if partition_field:
