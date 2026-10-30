@@ -1,5 +1,6 @@
 import json
 import uuid
+import copy
 from datetime import datetime
 from tempfile import TemporaryFile
 
@@ -116,21 +117,26 @@ class BaseProcessHandler(object):
 
     def _build_bq_schema_dict(self, schema):  # could move this to derived class but seems right to handle in base
         """
-        Convert BigQuery schema as a list to BigQuery schema as a dictionary
+                Convert BigQuery schema as a list to BigQuery schema as a dictionary
 
-        :param schema, list of BigQuery SchemaFields
-        :return: schema_dict, dict. Dict of BigQuery schema fields.
-            Dict key is field name
-            Dict value is a dict also. It has BigQuery mode and type
-        """
+                :param schema, list of BigQuery SchemaFields
+                :return: schema_dict, dict. Dict of BigQuery schema fields.
+                """
         schema_dict = {}
         for field in schema:
-            f = field if isinstance(field, dict) else field.to_api_repr()
-            schema_dict[f["name"]] = f
+            # Create a separate copy so mutations do not corrupt the original SchemaField._properties
+            raw_field = field if isinstance(field, dict) else field.to_api_repr()
+            f = copy.deepcopy(raw_field)
+
+            field_name = f.get("name")
+            if not field_name:
+                continue
+
+            schema_dict[field_name] = f
             if f.get("fields"):
-                schema_dict[f["name"]]["fields"] = self._build_bq_schema_dict(f["fields"])
-            schema_dict[f["name"]].pop("description")
-            schema_dict[f["name"]].pop("name")
+                schema_dict[field_name]["fields"] = self._build_bq_schema_dict(f["fields"])
+            f.pop("description", None)
+            f.pop("name", None)
         return schema_dict
 
 
