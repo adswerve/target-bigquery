@@ -16,10 +16,6 @@
         "partition_field": "date_start",
         "cluster_fields": ["account_id", "campaign_id", "adset_id", "ad_id"]
       },
-      "ads_insights_dma": {
-        "partition_field": "date_start",
-        "cluster_fields": ["dma" ,"account_id", "campaign_id", "adset_id"]
-      },
       "ads_insights_region": {
         "partition_field": "date_start",
         "cluster_fields": ["region" ,"account_id", "campaign_id", "adset_id"]
